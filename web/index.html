@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="medi_garde">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>medi_garde</title>
+  <link rel="manifest" href="manifest.json">
+
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDoQEO0kQQX_FqmDgUred4eM-shMawNXlY",
+        authDomain: "medigarde-89baf.firebaseapp.com",
+        projectId: "medigarde-89baf",
+        storageBucket: "medigarde-89baf.appspot.com",
+        messagingSenderId: "327256623418",
+        appId: "1:327256623418:web:1ce2066a72550e03266803",
+        measurementId: "G-F6NN6MZ7LC",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+  </script>
+
+  <script src="flutter.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+</head>
+
+<body>
+  <div id="recaptcha-container"></div> <!-- Only one container for reCAPTCHA -->
+  
+  <script>
+    window.addEventListener('load', function(ev) {
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
+      });
+    });
+  </script>
+
+  <script src="main.dart.js" type="application/javascript"></script>
+</body>
+</html>

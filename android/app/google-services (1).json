@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "327256623418",
+    "project_id": "medigarde-89baf",
+    "storage_bucket": "medigarde-89baf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327256623418:android:ffba31468038297f266803",
+        "android_client_info": {
+          "package_name": "com.example.medi_garde"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbT08IKH4e58dETQ15sFj_GNCVXxoonRM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
