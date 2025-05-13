@@ -55,22 +55,27 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    // Retrieve verificationId passed from the previous screen
-    final args = ModalRoute.of(context)?.settings.arguments as Map?;
-    verificationId = args?['verificationId'] ?? '';
+ @override
+void initState() {
+  super.initState();
+  
+  // Démarrer le timer
+  Timer.periodic(const Duration(seconds: 1), (t) {
+    if (timer == 0) {
+      t.cancel();
+    } else {
+      setState(() => timer--);
+    }
+  });
+}
 
-    // Timer countdown logic
-    Timer.periodic(const Duration(seconds: 1), (t) {
-      if (timer == 0) {
-        t.cancel();
-      } else {
-        setState(() => timer--);
-      }
-    });
-  }
+@override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  // Maintenant context est disponible
+  final args = ModalRoute.of(context)?.settings.arguments as Map?;
+  verificationId = args?['verificationId'] ?? '';
+}
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +87,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo.png', height: 100),
+              Image.asset('assets/images/logomediGarde.png', height: 100),
               const SizedBox(height: 10),
               const Text(
                 'Votre pharmacie de garde, toujours à portée de main !',

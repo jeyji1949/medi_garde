@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_auth_web/firebase_auth_web.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,61 +9,54 @@ class PhoneVerificationScreen extends StatelessWidget {
   PhoneVerificationScreen({super.key});
 
   Future<void> sendOTP(String phoneNumber, BuildContext context) async {
+  try {
     if (kIsWeb) {
-      final FirebaseAuthWeb authWeb = FirebaseAuthWeb.instance;
-      final recaptchaVerifier = RecaptchaVerifier(
-        auth: authWeb,
-        container: 'recaptcha-container', // Assurez-vous d’avoir ce conteneur dans le HTML.
-        size: RecaptchaVerifierSize.normal,
-        theme: RecaptchaVerifierTheme.light,
-      );
-
       print('Web: Sending OTP for phone number: $phoneNumber');
-      try {
-        await FirebaseAuth.instance.signInWithPhoneNumber(
-          phoneNumber,
-          recaptchaVerifier,
-        ).then((confirmationResult) {
-          print('OTP sent successfully! Confirmation result received.');
-          Navigator.pushNamed(context, '/otp', arguments: {
-            'confirmationResult': confirmationResult,
-            'phoneNumber': phoneNumber,
-          });
+      // L'API Web de Firebase Auth se charge automatiquement de recaptcha
+      await FirebaseAuth.instance.signInWithPhoneNumber(
+        phoneNumber,
+      ).then((confirmationResult) {
+        print('OTP sent successfully! Confirmation result received.');
+        Navigator.pushNamed(context, '/otp', arguments: {
+          'confirmationResult': confirmationResult,
+          'phoneNumber': phoneNumber,
         });
-      } catch (e) {
-        print('Error during OTP send: ${e.toString()}');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur : ${e.toString()}")));
-      }
+      });
     } else {
       print('Non-web: Sending OTP for phone number: $phoneNumber');
-      try {
-        await FirebaseAuth.instance.verifyPhoneNumber(
-          phoneNumber: phoneNumber,
-          verificationCompleted: (PhoneAuthCredential credential) {
-            print('Auto sign-in completed.');
-            // Auto-sign (Android uniquement)
-          },
-          verificationFailed: (FirebaseAuthException e) {
-            print('Verification failed: ${e.message}');
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur : ${e.message}")));
-          },
-          codeSent: (String verificationId, int? resendToken) {
-            print('OTP sent successfully! Verification ID: $verificationId');
-            Navigator.pushNamed(context, '/otp', arguments: {
-              'verificationId': verificationId,
-              'phoneNumber': phoneNumber,
-            });
-          },
-          codeAutoRetrievalTimeout: (String verificationId) {
-            print('Auto retrieval timeout for verification ID: $verificationId');
-          },
-        );
-      } catch (e) {
-        print('Error during OTP send: ${e.toString()}');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur : ${e.toString()}")));
-      }
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) {
+          print('Auto sign-in completed.');
+          // Auto-sign (Android uniquement)
+          FirebaseAuth.instance.signInWithCredential(credential)
+            .then((_) => Navigator.pushReplacementNamed(context, '/home'));
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          print('Verification failed: ${e.message}');
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Erreur : ${e.message}")));
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          print('OTP sent successfully! Verification ID: $verificationId');
+          Navigator.pushNamed(context, '/otp', arguments: {
+            'verificationId': verificationId,
+            'phoneNumber': phoneNumber,
+            'resendToken': resendToken,
+          });
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print('Auto retrieval timeout for verification ID: $verificationId');
+        },
+        timeout: const Duration(seconds: 120),
+      );
     }
+  } catch (e) {
+    print('Error during OTP send: ${e.toString()}');
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur : ${e.toString()}")));
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +67,7 @@ class PhoneVerificationScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/logo.png', height: 100),
+            Image.asset('assets/images/logomediGarde.png', height: 100),
             const SizedBox(height: 10),
             const Text(
               'Votre pharmacie de garde, toujours à portée de main !',

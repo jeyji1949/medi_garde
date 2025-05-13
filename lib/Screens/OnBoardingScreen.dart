@@ -15,7 +15,7 @@ class OnboardingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo.png', height: 100),
+              Image.asset('assets/images/logomediGarde.png', height: 100),
               const SizedBox(height: 10),
               const Text(
                 'Trouver une pharmacie près de chez vous',
@@ -35,13 +35,17 @@ class OnboardingScreen extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 48),
                 ),
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/phone');
+                  Navigator.pushReplacementNamed(context, '/login');
                 },
                 child: const Text('Commencer', style: TextStyle(color: Colors.white)),
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/phone'),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
                 child: const Text('Sauter', style: TextStyle(color: Color(0xFF4CAF50))),
               )
             ],

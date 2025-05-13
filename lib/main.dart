@@ -6,6 +6,8 @@ import 'package:medi_garde/Screens/OnBoardingScreen.dart';
 import 'package:medi_garde/Screens/PhoneVerification.dart'; // Correct import
 import 'package:medi_garde/Screens/OTPverification.dart'; // Ensure this is correctly imported
 import 'package:medi_garde/Screens/SplashScreen.dart';
+import 'package:medi_garde/Screens/loginScreen.dart';
+import 'package:medi_garde/Screens/signupScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +26,16 @@ void main() async {
         ),
       );
     } else {
-      await Firebase.initializeApp();
+      // Pour Android, utiliser les options de android.json
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyBbT08IKH4e58dETQ15sFj_GNCVXxoonRM',
+          appId: '1:327256623418:android:ffba31468038297f266803',
+          messagingSenderId: '327256623418',
+          projectId: 'medigarde-89baf',
+          storageBucket: 'medigarde-89baf.appspot.com',
+        ),
+      );
     }
   } catch (e) {
     runApp(MediGardeApp(error: e.toString()));
@@ -52,8 +63,8 @@ class MediGardeApp extends StatelessWidget {
       routes: {
         '/': (context) => error == null ? const SplashScreen() : ErrorScreen(error: error!),
         '/onboarding': (context) => const OnboardingScreen(),
-        '/phone': (context) =>  PhoneVerificationScreen(),
-        '/otp': (context) => const OTPVerificationScreen(),  // Ensure the constructor is valid
+        '/signup': (context) => SignUpScreen(),
+        '/login': (context) => LoginScreen(), // Ensure the constructor is valid
         '/home': (context) => const HomeScreen(),
       },
     );
