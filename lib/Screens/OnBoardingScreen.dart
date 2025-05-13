@@ -35,13 +35,13 @@ class OnboardingScreen extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 48),
                 ),
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/login');
+                  Navigator.pushReplacementNamed(context, '/role');
                 },
                 child: const Text('Commencer', style: TextStyle(color: Colors.white)),
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/signup'),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/role'),
                 style: TextButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   minimumSize: const Size(double.infinity, 48),

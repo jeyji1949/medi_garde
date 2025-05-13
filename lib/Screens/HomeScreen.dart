@@ -1,9 +1,235 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  
+  bool _isLoading = true;
+  Position? _currentPosition;
+  List<Map<String, dynamic>> _pharmacies = [];
+  List<Map<String, dynamic>> _doctors = [];
+  String _errorMessage = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    _initializeLocationAndData();
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _initializeLocationAndData() async {
+    try {
+      // Demander les permissions de localisation et obtenir la position
+      await _getCurrentLocation();
+      
+      // Une fois que nous avons la position, charger les données
+      if (_currentPosition != null) {
+        await Future.wait([
+          _loadPharmacies(),
+          _loadDoctors(),
+        ]);
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erreur lors du chargement des données: $e';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _getCurrentLocation() async {
+    final status = await Permission.location.request();
+    
+    if (status.isGranted) {
+      try {
+        setState(() => _isLoading = true);
+        
+        // Vérifier si le service de localisation est activé
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          setState(() {
+            _errorMessage = 'Les services de localisation sont désactivés.';
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Obtenir la position actuelle
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        
+        setState(() {
+          _currentPosition = position;
+        });
+      } catch (e) {
+        setState(() {
+          _errorMessage = 'Erreur de localisation: $e';
+          _isLoading = false;
+        });
+      }
+    } else {
+      setState(() {
+        _errorMessage = 'Permission de localisation refusée';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _loadPharmacies() async {
+    try {
+      // Récupérer les pharmacies depuis Firestore
+      final pharmaciesSnapshot = await FirebaseFirestore.instance
+          .collection('pharmacies')
+          .where('isOnDuty', isEqualTo: true) // Filtrer les pharmacies de garde
+          .get();
+      
+      List<Map<String, dynamic>> pharmacies = [];
+      
+      for (var doc in pharmaciesSnapshot.docs) {
+        final data = doc.data();
+        // Calculer la distance si nous avons les coordonnées
+        if (_currentPosition != null && data.containsKey('latitude') && data.containsKey('longitude')) {
+          double distance = Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            data['latitude'],
+            data['longitude'],
+          );
+          
+          // Convertir en km et arrondir
+          double distanceInKm = distance / 1000;
+          distanceInKm = double.parse(distanceInKm.toStringAsFixed(1));
+          
+          pharmacies.add({
+            'id': doc.id,
+            ...data,
+            'distance': distanceInKm,
+          });
+        } else {
+          pharmacies.add({
+            'id': doc.id,
+            ...data,
+            'distance': null,
+          });
+        }
+      }
+      
+      // Trier par distance si disponible
+      pharmacies.sort((a, b) {
+        if (a['distance'] == null && b['distance'] == null) return 0;
+        if (a['distance'] == null) return 1;
+        if (b['distance'] == null) return -1;
+        return a['distance'].compareTo(b['distance']);
+      });
+      
+      setState(() {
+        _pharmacies = pharmacies;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erreur lors du chargement des pharmacies: $e';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _loadDoctors() async {
+  try {
+    print("Chargement des médecins...");
+    final doctorsSnapshot = await FirebaseFirestore.instance
+        .collection('doctors')
+        .where('isAvailable', isEqualTo: true) // Filtrer les médecins disponibles
+        .get();
+    
+    List<Map<String, dynamic>> doctors = [];
+    
+    for (var doc in doctorsSnapshot.docs) {
+      final data = doc.data();
+      // Vérifiez si nous avons les coordonnées nécessaires
+      if (_currentPosition != null && data.containsKey('latitude') && data.containsKey('longitude')) {
+        double distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          data['latitude'],
+          data['longitude'],
+        );
+        
+        // Convertir en km et arrondir
+        double distanceInKm = distance / 1000;
+        distanceInKm = double.parse(distanceInKm.toStringAsFixed(1));
+        
+        doctors.add({
+          'id': doc.id,
+          ...data,
+          'distance': distanceInKm,
+        });
+      } else {
+        doctors.add({
+          'id': doc.id,
+          ...data,
+          'distance': null,
+        });
+      }
+    }
+    
+    // Trier les médecins par distance
+    doctors.sort((a, b) {
+      if (a['distance'] == null && b['distance'] == null) return 0;
+      if (a['distance'] == null) return 1;
+      if (b['distance'] == null) return -1;
+      return a['distance'].compareTo(b['distance']);
+    });
+    
+    setState(() {
+      _doctors = doctors;
+      _isLoading = false;
+    });
+  } catch (e) {
+    setState(() {
+      _errorMessage = 'Erreur lors du chargement des médecins: $e';
+      _isLoading = false;
+    });
+    print('Erreur lors du chargement des médecins: $e');
+  }
+}
+
+ void _onSearchQueryChanged(String query) {
+  final lowercaseQuery = query.toLowerCase();
+
+  setState(() {
+    _pharmacies = _pharmacies.where((pharmacy) {
+      final name = pharmacy['name']?.toLowerCase() ?? '';
+      final address = pharmacy['address']?.toLowerCase() ?? '';
+      return name.contains(lowercaseQuery) || address.contains(lowercaseQuery);
+    }).toList();
+
+    _doctors = _doctors.where((doctor) {
+      final firstName = doctor['firstName']?.toLowerCase() ?? '';
+      final lastName = doctor['lastName']?.toLowerCase() ?? '';
+      final specialty = doctor['specialty']?.toLowerCase() ?? '';
+      return firstName.contains(lowercaseQuery) || lastName.contains(lowercaseQuery) || specialty.contains(lowercaseQuery);
+    }).toList();
+  });
+}
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -17,7 +243,6 @@ class HomeScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
-                  // Le const peut rester ici car tous les enfants sont constants
                   Icon(Icons.menu, color: Colors.black),
                   Text('mediGarde',
                       style: TextStyle(
@@ -28,6 +253,7 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
+              
               // Search bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -36,77 +262,128 @@ class HomeScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.search, color: Colors.grey),
-                    SizedBox(width: 8),
+                  children: [
+                    const Icon(Icons.search, color: Colors.grey),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
-                        decoration: InputDecoration(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
                           hintText: 'Recherche une pharmacie ou un médecin',
                           border: InputBorder.none,
                         ),
+                        onChanged: _onSearchQueryChanged,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              // Suggestion card
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(10),
+              
+              // Messages d'erreur ou de chargement
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
+                  ),
+                )
+              else if (_errorMessage.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(
+                    child: Text(
+                      _errorMessage,
+                      style: TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _initializeLocationAndData,
+                    color: Color(0xFF4CAF50),
+                    child: SingleChildScrollView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section Pharmacies
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                            child: Text(
+                              'Pharmacies de garde à proximité',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text('Pharmacie',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                            Text('Obtenir des médicaments vérifiés.',
-                                style: TextStyle(
-                                    fontSize: 13, color: Colors.grey)),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(8),
+                          
+                          // Liste des pharmacies
+                          _pharmacies.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                                  child: Center(
+                                    child: Text(
+                                      'Aucune pharmacie de garde trouvée à proximité',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  itemCount: _pharmacies.length,
+                                  itemBuilder: (context, index) {
+                                    final pharmacy = _pharmacies[index];
+                                    return _buildPharmacyCard(pharmacy);
+                                  },
+                                ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Section Médecins
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0, bottom: 12.0),
+                            child: Text(
+                              'Médecins disponibles à proximité',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          
+                          // Liste des médecins
+                          _doctors.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                                  child: Center(
+                                    child: Text(
+                                      'Aucun médecin disponible trouvé à proximité',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  itemCount: _doctors.length,
+                                  itemBuilder: (context, index) {
+                                    final doctor = _doctors[index];
+                                    return _buildDoctorCard(doctor);
+                                  },
+                                ),
+                              
+                          // Ajouter un peu d'espace au bas de la liste
+                          const SizedBox(height: 20),
+                        ],
                       ),
-                      child: const Text('Get',
-                          style: TextStyle(
-                              color: Color(0xFF4CAF50),
-                              fontWeight: FontWeight.bold)),
-                    )
-                  ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Placeholder for cards (pharmacies + doctors)
-              const Expanded(
-                child: Center(
-                  child: Text('Chargement des pharmacies et médecins...'),
-                ),
-              ),
             ],
           ),
         ),
@@ -115,6 +392,7 @@ class HomeScreen extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Color(0xFF4CAF50),
         unselectedItemColor: Colors.grey,
+        currentIndex: 0, // L'index de l'accueil
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
           BottomNavigationBarItem(
@@ -124,6 +402,238 @@ class HomeScreen extends StatelessWidget {
           BottomNavigationBarItem(
               icon: Icon(Icons.person_outline), label: 'Profil'),
         ],
+        onTap: (index) {
+          // Gérer la navigation vers les autres écrans ici
+          if (index != 0) {
+            // Notifier que cette fonctionnalité est en cours de développement
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Cette fonctionnalité sera bientôt disponible'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+  
+  Widget _buildPharmacyCard(Map<String, dynamic> pharmacy) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          // Naviguer vers la page détaillée de la pharmacie
+          // Navigator.of(context).push(MaterialPageRoute(
+          //   builder: (context) => PharmacyDetailScreen(pharmacyId: pharmacy['id']),
+          // ));
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              // Image de la pharmacie
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10),
+                  image: pharmacy['imageUrl'] != null && pharmacy['imageUrl'].isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(pharmacy['imageUrl']),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: pharmacy['imageUrl'] == null || pharmacy['imageUrl'].isEmpty
+                    ? const Icon(Icons.local_pharmacy, color: Colors.grey, size: 30)
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              // Informations sur la pharmacie
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pharmacy['name'] ?? 'Pharmacie',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      pharmacy['address'] ?? 'Adresse non disponible',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          pharmacy['openingHours'] ?? 'Horaires non disponibles',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Distance et bouton d'action
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (pharmacy['distance'] != null)
+                    Text(
+                      '${pharmacy['distance']} km',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4CAF50),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Text(
+                      'Voir',
+                      style: TextStyle(
+                        color: Color(0xFF4CAF50),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDoctorCard(Map<String, dynamic> doctor) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          // Naviguer vers la page détaillée du médecin
+          // Navigator.of(context).push(MaterialPageRoute(
+          //   builder: (context) => DoctorDetailScreen(doctorId: doctor['id']),
+          // ));
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              // Image du médecin
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(10),
+                  image: doctor['imageUrl'] != null && doctor['imageUrl'].isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(doctor['imageUrl']),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: doctor['imageUrl'] == null || doctor['imageUrl'].isEmpty
+                    ? const Icon(Icons.person, color: Colors.grey, size: 30)
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              // Informations sur le médecin
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dr. ${doctor['lastName'] ?? ''} ${doctor['firstName'] ?? ''}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      doctor['specialty'] ?? 'Spécialité non disponible',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF4CAF50)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 14, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${doctor['rating']?.toStringAsFixed(1) ?? '0.0'} (${doctor['reviewCount'] ?? '0'})',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Distance et bouton d'action
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (doctor['distance'] != null)
+                    Text(
+                      '${doctor['distance']} km',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4CAF50),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Text(
+                      'RDV',
+                      style: TextStyle(
+                        color: Color(0xFF4CAF50),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

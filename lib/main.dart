@@ -1,13 +1,18 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:medi_garde/Screens/DoctorPanel.dart';
 import 'package:medi_garde/Screens/HomeScreen.dart';
 import 'package:medi_garde/Screens/OnBoardingScreen.dart';
 import 'package:medi_garde/Screens/PhoneVerification.dart'; // Correct import
 import 'package:medi_garde/Screens/OTPverification.dart'; // Ensure this is correctly imported
 import 'package:medi_garde/Screens/SplashScreen.dart';
+import 'package:medi_garde/Screens/doctor_screen.dart';
 import 'package:medi_garde/Screens/loginScreen.dart';
+import 'package:medi_garde/Screens/pharmacie_screen.dart';
+import 'package:medi_garde/Screens/pharmacyPanel.dart';
 import 'package:medi_garde/Screens/signupScreen.dart';
+import 'package:medi_garde/Screens/user_type_selection_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,11 +66,17 @@ class MediGardeApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => error == null ? const SplashScreen() : ErrorScreen(error: error!),
+        '/': (context) =>
+            error == null ? const SplashScreen() : ErrorScreen(error: error!),
         '/onboarding': (context) => const OnboardingScreen(),
         '/signup': (context) => SignUpScreen(),
         '/login': (context) => LoginScreen(), // Ensure the constructor is valid
         '/home': (context) => const HomeScreen(),
+        '/role': (context) => const UserTypeSelectionScreen(),
+        '/pharmacyForm': (context) => const AdminPharmacyFormScreen(),
+        '/doctorForm': (context) => const AdminDoctorFormScreen(),
+        '/pharmacyPanel': (context) => const AdminPharmacyHomeScreen(),
+        '/doctorPanel': (context) => const DoctorHomeScreen(),
       },
     );
   }
@@ -80,7 +91,8 @@ class ErrorScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Error')),
       body: Center(
-        child: Text('Failed to initialize Firebase: $error', textAlign: TextAlign.center),
+        child: Text('Failed to initialize Firebase: $error',
+            textAlign: TextAlign.center),
       ),
     );
   }

@@ -81,163 +81,169 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Connexion'),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Logo ou image
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 30.0),
-                  child: Icon(
-                    Icons.medical_services,
-                    size: 100,
-                    color: Theme.of(context).primaryColor,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Logo
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 30.0),
+                    child: Image.asset('assets/images/logomediGarde.png', height: 100),
                   ),
-                ),
-                
-                // Titre de l'application
-                Text(
-                  'MediGarde',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                  
+                  // Titre de l'application
+                  Text(
+                    'Connexion',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4CAF50),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 30),
-                
-                // Champ Email
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(
+                  SizedBox(height: 30),
+                  
+                  // Champ Email
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF2F2F2),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer votre email';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
-                
-                // Champ Mot de passe
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Mot de passe',
-                    prefixIcon: Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    child: TextFormField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email, color: Colors.grey),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre email';
+                        }
+                        return null;
                       },
                     ),
-                    border: OutlineInputBorder(
+                  ),
+                  SizedBox(height: 16),
+                  
+                  // Champ Mot de passe
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF2F2F2),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                  ),
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer votre mot de passe';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 8),
-                
-                // Lien "Mot de passe oublié"
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      // Naviguer vers l'écran de récupération de mot de passe
-                      // Navigator.pushNamed(context, '/forgot-password');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Fonctionnalité à venir')),
-                      );
-                    },
-                    child: Text('Mot de passe oublié?'),
-                  ),
-                ),
-                SizedBox(height: 16),
-                
-                // Message d'erreur
-                if (_errorMessage != null)
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 16.0),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center,
+                    child: TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Mot de passe',
+                        prefixIcon: Icon(Icons.lock, color: Colors.grey),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      obscureText: _obscurePassword,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Veuillez entrer votre mot de passe';
+                        }
+                        return null;
+                      },
                     ),
                   ),
-                
-                // Bouton de connexion
-                _isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : ElevatedButton(
-                        onPressed: _signInWithEmailPassword,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                           
+                  SizedBox(height: 8),
+                  
+                  // Lien "Mot de passe oublié"
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        // Naviguer vers l'écran de récupération de mot de passe
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Fonctionnalité à venir')),
+                        );
+                      },
+                      child: Text('Mot de passe oublié?', style: TextStyle(color: Color(0xFF4CAF50))),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  
+                  // Message d'erreur
+                  if (_errorMessage != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  
+                  // Bouton de connexion
+                  _isLoading
+                      ? Center(child: CircularProgressIndicator(color: Color(0xFF4CAF50)))
+                      : ElevatedButton(
+                          onPressed: _signInWithEmailPassword,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF4CAF50),
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            'Se connecter',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                         ),
-                        child: Text(
-                          'Se connecter',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                  SizedBox(height: 20),
+                  
+                  // Séparateur
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey[300])),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('OU', style: TextStyle(color: Colors.grey)),
                       ),
-                SizedBox(height: 20),
-                
-                // Séparateur
-                Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text('OU'),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                SizedBox(height: 20),
-                
-                // Lien vers la page d'inscription
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Vous n\'avez pas de compte?'),
-                    TextButton(
-                      onPressed: () {
-                        // Navigation vers l'écran d'inscription
-                        Navigator.pushNamed(context, '/signup');
-                      },
-                      child: Text('S\'inscrire'),
-                    ),
-                  ],
-                ),
-              ],
+                      Expanded(child: Divider(color: Colors.grey[300])),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  
+                  // Lien vers la page d'inscription
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Vous n\'avez pas de compte?'),
+                      TextButton(
+                        onPressed: () {
+                          // Navigation vers l'écran d'inscription
+                          Navigator.pushNamed(context, '/signup');
+                        },
+                        child: Text('S\'inscrire', style: TextStyle(color: Color(0xFF4CAF50))),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
