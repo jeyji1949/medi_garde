@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:medi_garde/Screens/pharmacy_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +18,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   Position? _currentPosition;
   List<Map<String, dynamic>> _pharmacies = [];
+  List<Map<String, dynamic>> _filteredPharmacies = [];
   List<Map<String, dynamic>> _doctors = [];
+  List<Map<String, dynamic>> _filteredDoctors = [];
   String _errorMessage = '';
   
   @override
@@ -96,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Récupérer les pharmacies depuis Firestore
       final pharmaciesSnapshot = await FirebaseFirestore.instance
           .collection('pharmacies')
-          .where('isOnDuty', isEqualTo: true) // Filtrer les pharmacies de garde
+          .where('onDuty', isEqualTo: true) // Utiliser le bon nom de champ
           .get();
       
       List<Map<String, dynamic>> pharmacies = [];
@@ -140,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       setState(() {
         _pharmacies = pharmacies;
+        _filteredPharmacies = pharmacies;
         _isLoading = false;
       });
     } catch (e) {
@@ -151,84 +155,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   Future<void> _loadDoctors() async {
-  try {
-    print("Chargement des médecins...");
-    final doctorsSnapshot = await FirebaseFirestore.instance
-        .collection('doctors')
-        .where('isAvailable', isEqualTo: true) // Filtrer les médecins disponibles
-        .get();
+    try {
+      print("Chargement des médecins...");
+      final doctorsSnapshot = await FirebaseFirestore.instance
+          .collection('doctors')
+          .where('isAvailable', isEqualTo: true) // Filtrer les médecins disponibles
+          .get();
     
-    List<Map<String, dynamic>> doctors = [];
+      List<Map<String, dynamic>> doctors = [];
     
-    for (var doc in doctorsSnapshot.docs) {
-      final data = doc.data();
-      // Vérifiez si nous avons les coordonnées nécessaires
-      if (_currentPosition != null && data.containsKey('latitude') && data.containsKey('longitude')) {
-        double distance = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          data['latitude'],
-          data['longitude'],
-        );
-        
-        // Convertir en km et arrondir
-        double distanceInKm = distance / 1000;
-        distanceInKm = double.parse(distanceInKm.toStringAsFixed(1));
-        
-        doctors.add({
-          'id': doc.id,
-          ...data,
-          'distance': distanceInKm,
-        });
-      } else {
-        doctors.add({
-          'id': doc.id,
-          ...data,
-          'distance': null,
-        });
+      for (var doc in doctorsSnapshot.docs) {
+        final data = doc.data();
+        // Vérifiez si nous avons les coordonnées nécessaires
+        if (_currentPosition != null && data.containsKey('latitude') && data.containsKey('longitude')) {
+          double distance = Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            data['latitude'],
+            data['longitude'],
+          );
+          
+          // Convertir en km et arrondir
+          double distanceInKm = distance / 1000;
+          distanceInKm = double.parse(distanceInKm.toStringAsFixed(1));
+          
+          doctors.add({
+            'id': doc.id,
+            ...data,
+            'distance': distanceInKm,
+          });
+        } else {
+          doctors.add({
+            'id': doc.id,
+            ...data,
+            'distance': null,
+          });
+        }
       }
+    
+      // Trier les médecins par distance
+      doctors.sort((a, b) {
+        if (a['distance'] == null && b['distance'] == null) return 0;
+        if (a['distance'] == null) return 1;
+        if (b['distance'] == null) return -1;
+        return a['distance'].compareTo(b['distance']);
+      });
+    
+      setState(() {
+        _doctors = doctors;
+        _filteredDoctors = doctors;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erreur lors du chargement des médecins: $e';
+        _isLoading = false;
+      });
+      print('Erreur lors du chargement des médecins: $e');
     }
-    
-    // Trier les médecins par distance
-    doctors.sort((a, b) {
-      if (a['distance'] == null && b['distance'] == null) return 0;
-      if (a['distance'] == null) return 1;
-      if (b['distance'] == null) return -1;
-      return a['distance'].compareTo(b['distance']);
-    });
-    
-    setState(() {
-      _doctors = doctors;
-      _isLoading = false;
-    });
-  } catch (e) {
-    setState(() {
-      _errorMessage = 'Erreur lors du chargement des médecins: $e';
-      _isLoading = false;
-    });
-    print('Erreur lors du chargement des médecins: $e');
   }
-}
 
- void _onSearchQueryChanged(String query) {
-  final lowercaseQuery = query.toLowerCase();
+  void _onSearchQueryChanged(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        // Réinitialiser aux valeurs complètes si la recherche est vide
+        _filteredPharmacies = List.from(_pharmacies);
+        _filteredDoctors = List.from(_doctors);
+      } else {
+        final lowercaseQuery = query.toLowerCase();
+        
+        _filteredPharmacies = _pharmacies.where((pharmacy) {
+          final name = pharmacy['name']?.toLowerCase() ?? '';
+          final address = pharmacy['location']?.toLowerCase() ?? ''; // Corriger le nom du champ
+          return name.contains(lowercaseQuery) || address.contains(lowercaseQuery);
+        }).toList();
 
-  setState(() {
-    _pharmacies = _pharmacies.where((pharmacy) {
-      final name = pharmacy['name']?.toLowerCase() ?? '';
-      final address = pharmacy['address']?.toLowerCase() ?? '';
-      return name.contains(lowercaseQuery) || address.contains(lowercaseQuery);
-    }).toList();
-
-    _doctors = _doctors.where((doctor) {
-      final firstName = doctor['firstName']?.toLowerCase() ?? '';
-      final lastName = doctor['lastName']?.toLowerCase() ?? '';
-      final specialty = doctor['specialty']?.toLowerCase() ?? '';
-      return firstName.contains(lowercaseQuery) || lastName.contains(lowercaseQuery) || specialty.contains(lowercaseQuery);
-    }).toList();
-  });
-}
-
+        _filteredDoctors = _doctors.where((doctor) {
+          final name = doctor['name']?.toLowerCase() ?? '';
+          final specialty = doctor['specialty']?.toLowerCase() ?? '';
+          return name.contains(lowercaseQuery) || specialty.contains(lowercaseQuery);
+        }).toList();
+      }
+    });
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -322,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           
                           // Liste des pharmacies
-                          _pharmacies.isEmpty
+                          _filteredPharmacies.isEmpty
                               ? const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 20.0),
                                   child: Center(
@@ -335,9 +344,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               : ListView.builder(
                                   shrinkWrap: true,
                                   physics: NeverScrollableScrollPhysics(),
-                                  itemCount: _pharmacies.length,
+                                  itemCount: _filteredPharmacies.length,
                                   itemBuilder: (context, index) {
-                                    final pharmacy = _pharmacies[index];
+                                    final pharmacy = _filteredPharmacies[index];
                                     return _buildPharmacyCard(pharmacy);
                                   },
                                 ),
@@ -357,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           
                           // Liste des médecins
-                          _doctors.isEmpty
+                          _filteredDoctors.isEmpty
                               ? const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 20.0),
                                   child: Center(
@@ -370,9 +379,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               : ListView.builder(
                                   shrinkWrap: true,
                                   physics: NeverScrollableScrollPhysics(),
-                                  itemCount: _doctors.length,
+                                  itemCount: _filteredDoctors.length,
                                   itemBuilder: (context, index) {
-                                    final doctor = _doctors[index];
+                                    final doctor = _filteredDoctors[index];
                                     return _buildDoctorCard(doctor);
                                   },
                                 ),
@@ -426,12 +435,12 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
-        onTap: () {
-          // Naviguer vers la page détaillée de la pharmacie
-          // Navigator.of(context).push(MaterialPageRoute(
-          //   builder: (context) => PharmacyDetailScreen(pharmacyId: pharmacy['id']),
-          // ));
-        },
+       onTap: () {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (context) => PharmacyDetailScreen(pharmacy: pharmacy),
+  ));
+},
+
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -444,14 +453,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(10),
-                  image: pharmacy['imageUrl'] != null && pharmacy['imageUrl'].isNotEmpty
+                  image: pharmacy['imageUrl'] != null && pharmacy['imageUrl'].toString().isNotEmpty
                       ? DecorationImage(
                           image: NetworkImage(pharmacy['imageUrl']),
                           fit: BoxFit.cover,
                         )
                       : null,
                 ),
-                child: pharmacy['imageUrl'] == null || pharmacy['imageUrl'].isEmpty
+                child: pharmacy['imageUrl'] == null || pharmacy['imageUrl'].toString().isEmpty
                     ? const Icon(Icons.local_pharmacy, color: Colors.grey, size: 30)
                     : null,
               ),
@@ -472,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      pharmacy['address'] ?? 'Adresse non disponible',
+                      pharmacy['location'] ?? 'Adresse non disponible', // Corriger le nom du champ
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -483,7 +492,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(Icons.access_time, size: 14, color: Colors.grey),
                         const SizedBox(width: 4),
                         Text(
-                          pharmacy['openingHours'] ?? 'Horaires non disponibles',
+                          pharmacy['is24Hours'] == true 
+                              ? 'Ouvert 24h/24'
+                              : '${pharmacy['openingHours'] ?? ''} - ${pharmacy['closingHours'] ?? ''}',
                           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                         ),
                       ],
@@ -554,14 +565,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(10),
-                  image: doctor['imageUrl'] != null && doctor['imageUrl'].isNotEmpty
+                  image: doctor['imageUrl'] != null && doctor['imageUrl'].toString().isNotEmpty
                       ? DecorationImage(
                           image: NetworkImage(doctor['imageUrl']),
                           fit: BoxFit.cover,
                         )
                       : null,
                 ),
-                child: doctor['imageUrl'] == null || doctor['imageUrl'].isEmpty
+                child: doctor['imageUrl'] == null || doctor['imageUrl'].toString().isEmpty
                     ? const Icon(Icons.person, color: Colors.grey, size: 30)
                     : null,
               ),
@@ -572,7 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dr. ${doctor['lastName'] ?? ''} ${doctor['firstName'] ?? ''}',
+                      'Dr. ${doctor['name'] ?? ''}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
